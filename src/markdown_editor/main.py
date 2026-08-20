@@ -16,11 +16,13 @@ class MarkdownEditor(QMainWindow):
         super().__init__()
 
         self.current_file = None
+        self.is_modified = False
 
         self.setWindowTitle("Markdown Editor")
         self.resize(900, 600)
 
         self.editor = QTextEdit()
+        self.editor.textChanged.connect(self.document_modified)
         self.setCentralWidget(self.editor)
 
         self.create_menu()
@@ -40,10 +42,28 @@ class MarkdownEditor(QMainWindow):
         save_action.triggered.connect(self.save_file)
         file_menu.addAction(save_action)
 
+        save_as_action = QAction("Save As", self)
+        save_as_action.triggered.connect(self.save_file_as)
+        file_menu.addAction(save_as_action)
+
+    def document_modified(self):
+        self.is_modified = True
+        self.update_window_title()
+
+    def update_window_title(self):
+        if self.current_file is None:
+            filename = "Untitled"
+        else:
+            filename = self.current_file.name
+
+        marker = " *" if self.is_modified else ""
+        self.setWindowTitle(f"{filename}{marker} - Markdown Editor")
+
     def new_file(self):
         self.editor.clear()
         self.current_file = None
-        self.setWindowTitle("Markdown Editor")
+        self.is_modified = False
+        self.update_window_title()
 
     def open_file(self):
         filename, _ = QFileDialog.getOpenFileName(
@@ -68,26 +88,46 @@ class MarkdownEditor(QMainWindow):
             )
             return
 
+        self.editor.blockSignals(True)
         self.editor.setPlainText(content)
+        self.editor.blockSignals(False)
+
         self.current_file = path
-        self.setWindowTitle(f"{path.name} - Markdown Editor")
+        self.is_modified = False
+        self.update_window_title()
 
     def save_file(self):
         if self.current_file is None:
-            filename, _ = QFileDialog.getSaveFileName(
-                self,
-                "Save Markdown file",
-                "",
-                "Markdown files (*.md);;All files (*)",
-            )
+            return self.save_file_as()
 
-            if not filename:
-                return
+        return self.write_file(self.current_file)
 
-            self.current_file = Path(filename)
+    def save_file_as(self):
+        filename, _ = QFileDialog.getSaveFileName(
+            self,
+            "Save Markdown file",
+            "",
+            "Markdown files (*.md);;All files (*)",
+        )
 
+        if not filename:
+            return False
+
+        path = Path(filename)
+
+        if path.suffix == "":
+            path = path.with_suffix(".md")
+
+        if self.write_file(path):
+            self.current_file = path
+            self.update_window_title()
+            return True
+
+        return False
+
+    def write_file(self, path):
         try:
-            self.current_file.write_text(
+            path.write_text(
                 self.editor.toPlainText(),
                 encoding="utf-8",
             )
@@ -97,11 +137,12 @@ class MarkdownEditor(QMainWindow):
                 "Error",
                 f"Could not save file:\n{error}",
             )
-            return
+            return False
 
-        self.setWindowTitle(
-            f"{self.current_file.name} - Markdown Editor"
-        )
+        self.current_file = path
+        self.is_modified = False
+        self.update_window_title()
+        return True
 
 
 def main():
