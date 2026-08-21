@@ -26,6 +26,7 @@ class MarkdownEditor(QMainWindow):
         self.setCentralWidget(self.editor)
 
         self.create_menu()
+        self.update_window_title()
 
     def create_menu(self):
         file_menu = self.menuBar().addMenu("File")
@@ -59,13 +60,44 @@ class MarkdownEditor(QMainWindow):
         marker = " *" if self.is_modified else ""
         self.setWindowTitle(f"{filename}{marker} - Markdown Editor")
 
+    def confirm_unsaved_changes(self):
+        if not self.is_modified:
+            return True
+
+        response = QMessageBox.warning(
+            self,
+            "Unsaved Changes",
+            "The document has unsaved changes.\n\nDo you want to save them?",
+            QMessageBox.Save
+            | QMessageBox.Discard
+            | QMessageBox.Cancel,
+            QMessageBox.Save,
+        )
+
+        if response == QMessageBox.Save:
+            return self.save_file()
+
+        if response == QMessageBox.Discard:
+            return True
+
+        return False
+
     def new_file(self):
+        if not self.confirm_unsaved_changes():
+            return
+
+        self.editor.blockSignals(True)
         self.editor.clear()
+        self.editor.blockSignals(False)
+
         self.current_file = None
         self.is_modified = False
         self.update_window_title()
 
     def open_file(self):
+        if not self.confirm_unsaved_changes():
+            return
+
         filename, _ = QFileDialog.getOpenFileName(
             self,
             "Open Markdown file",
@@ -118,12 +150,7 @@ class MarkdownEditor(QMainWindow):
         if path.suffix == "":
             path = path.with_suffix(".md")
 
-        if self.write_file(path):
-            self.current_file = path
-            self.update_window_title()
-            return True
-
-        return False
+        return self.write_file(path)
 
     def write_file(self, path):
         try:
@@ -143,6 +170,12 @@ class MarkdownEditor(QMainWindow):
         self.is_modified = False
         self.update_window_title()
         return True
+
+    def closeEvent(self, event):
+        if self.confirm_unsaved_changes():
+            event.accept()
+        else:
+            event.ignore()
 
 
 def main():
