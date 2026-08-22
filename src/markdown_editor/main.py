@@ -7,6 +7,7 @@ from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
     QApplication,
     QFileDialog,
+    QInputDialog,
     QMainWindow,
     QMessageBox,
     QSplitter,
@@ -79,6 +80,14 @@ class MarkdownEditor(QMainWindow):
         open_folder_action.triggered.connect(self.open_folder)
         file_menu.addAction(open_folder_action)
 
+        new_note_action = QAction("New Note", self)
+        new_note_action.triggered.connect(self.create_new_note)
+        file_menu.addAction(new_note_action)
+
+        new_folder_action = QAction("New Folder", self)
+        new_folder_action.triggered.connect(self.create_new_folder)
+        file_menu.addAction(new_folder_action)
+
         save_action = QAction("Save", self)
         save_action.setShortcut("Ctrl+S")
         save_action.triggered.connect(self.save_file)
@@ -88,6 +97,128 @@ class MarkdownEditor(QMainWindow):
         save_as_action.setShortcut("Ctrl+Shift+S")
         save_as_action.triggered.connect(self.save_file_as)
         file_menu.addAction(save_as_action)
+
+    def create_new_note(self):
+        if self.current_folder is None:
+            QMessageBox.information(
+                self,
+                "No Folder Open",
+                "Open a folder before creating a new note.",
+            )
+            return
+
+        name, ok = QInputDialog.getText(
+            self,
+            "New Note",
+            "Note name:",
+        )
+
+        if not ok or not name.strip():
+            return
+
+        name = name.strip()
+
+        if not name.lower().endswith(".md"):
+            name += ".md"
+
+        target_folder = self.get_selected_folder()
+        path = target_folder / name
+
+        if path.exists():
+            QMessageBox.warning(
+                self,
+                "File Exists",
+                "A file with that name already exists.",
+            )
+            return
+
+        try:
+            path.write_text("", encoding="utf-8")
+        except OSError as error:
+            QMessageBox.critical(
+                self,
+                "Error",
+                f"Could not create file:\n{error}",
+            )
+            return
+
+        self.load_markdown_files()
+
+    def create_new_folder(self):
+        if self.current_folder is None:
+            QMessageBox.information(
+                self,
+                "No Folder Open",
+                "Open a folder before creating a new folder.",
+            )
+            return
+
+        name, ok = QInputDialog.getText(
+            self,
+            "New Folder",
+            "Folder name:",
+        )
+
+        if not ok or not name.strip():
+            return
+
+        target_folder = self.get_selected_folder()
+        path = target_folder / name.strip()
+
+        if path.exists():
+            QMessageBox.warning(
+                self,
+                "Folder Exists",
+                "A folder with that name already exists.",
+            )
+            return
+
+        try:
+            path.mkdir()
+        except OSError as error:
+            QMessageBox.critical(
+                self,
+                "Error",
+                f"Could not create folder:\n{error}",
+            )
+            return
+
+        self.load_markdown_files()
+
+    def get_selected_folder(self):
+        selected_items = self.file_tree.selectedItems()
+
+        if not selected_items:
+            return self.current_folder
+
+        item = selected_items[0]
+        path_data = item.data(0, Qt.UserRole)
+
+        # Root or folder items currently have no stored path.
+        if path_data is None:
+            item_text = item.text(0)
+
+            if item.parent() is None:
+                return self.current_folder
+
+            parts = []
+
+            current_item = item
+
+            while current_item.parent() is not None:
+                parts.append(current_item.text(0))
+                current_item = current_item.parent()
+
+            parts.reverse()
+
+            return self.current_folder.joinpath(*parts)
+
+        path = Path(path_data)
+
+        if path.is_file():
+            return path.parent
+
+        return path
 
     def open_folder(self):
         folder = QFileDialog.getExistingDirectory(
