@@ -1,5 +1,6 @@
 import sys
 from pathlib import Path
+from PySide6.QtWidgets import QStyle
 
 from markdown_it import MarkdownIt
 from PySide6.QtCore import Qt
@@ -251,6 +252,11 @@ class MarkdownEditor(QMainWindow):
             self.current_folder,
             root_item,
         )
+
+        root_icon = self.style().standardIcon(
+            QStyle.StandardPixmap.SP_DirIcon
+        )
+        root_item.setIcon(0, root_icon)
         self.file_tree.expandAll()
 
     def add_folder_to_tree(self, folder, parent_item):
@@ -269,6 +275,11 @@ class MarkdownEditor(QMainWindow):
                     [path.name],
                 )
 
+                folder_icon = self.style().standardIcon(
+                    QStyle.StandardPixmap.SP_DirIcon
+                )
+                folder_item.setIcon(0, folder_icon)
+
                 self.add_folder_to_tree(
                     path,
                     folder_item,
@@ -279,6 +290,11 @@ class MarkdownEditor(QMainWindow):
                     parent_item,
                     [path.name],
                 )
+
+                file_icon = self.style().standardIcon(
+                    QStyle.StandardPixmap.SP_FileIcon
+                )
+                file_item.setIcon(0, file_icon)
 
                 file_item.setData(
                     0,
