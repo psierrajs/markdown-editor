@@ -32,18 +32,22 @@ class MarkdownEditor(QMainWindow):
         file_menu = self.menuBar().addMenu("File")
 
         new_action = QAction("New", self)
+        new_action.setShortcut("Ctrl+N")
         new_action.triggered.connect(self.new_file)
         file_menu.addAction(new_action)
 
         open_action = QAction("Open", self)
+        open_action.setShortcut("Ctrl+O")
         open_action.triggered.connect(self.open_file)
         file_menu.addAction(open_action)
 
         save_action = QAction("Save", self)
+        save_action.setShortcut("Ctrl+S")
         save_action.triggered.connect(self.save_file)
         file_menu.addAction(save_action)
 
         save_as_action = QAction("Save As", self)
+        save_as_action.setShortcut("Ctrl+Shift+S")
         save_as_action.triggered.connect(self.save_file_as)
         file_menu.addAction(save_as_action)
 
