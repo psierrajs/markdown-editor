@@ -3,15 +3,17 @@ from pathlib import Path
 from PySide6.QtWidgets import QStyle
 
 from markdown_it import MarkdownIt
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QPoint
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
     QApplication,
     QFileDialog,
     QInputDialog,
     QMainWindow,
+    QMenu,
     QMessageBox,
     QSplitter,
+    QStyle,
     QTextBrowser,
     QTextEdit,
     QTreeWidget,
@@ -42,6 +44,13 @@ class MarkdownEditor(QMainWindow):
         self.file_tree.setHeaderHidden(True)
         self.file_tree.itemClicked.connect(self.open_file_from_sidebar)
 
+        self.file_tree.setContextMenuPolicy(
+            Qt.ContextMenuPolicy.CustomContextMenu
+        )
+        self.file_tree.customContextMenuRequested.connect(
+            self.show_tree_context_menu
+        )
+
         editor_splitter = QSplitter(Qt.Horizontal)
         editor_splitter.addWidget(self.editor)
         editor_splitter.addWidget(self.preview)
@@ -58,6 +67,30 @@ class MarkdownEditor(QMainWindow):
         self.update_window_title()
         self.statusBar()
         self.update_status_bar()
+
+    def show_tree_context_menu(self, position):
+        if self.current_folder is None:
+            return
+
+        item = self.file_tree.itemAt(position)
+
+        if item is not None:
+            self.file_tree.setCurrentItem(item)
+
+        menu = QMenu(self)
+
+        new_note_action = menu.addAction("New Note")
+        new_folder_action = menu.addAction("New Folder")
+
+        selected_action = menu.exec(
+            self.file_tree.viewport().mapToGlobal(position)
+        )
+
+        if selected_action == new_note_action:
+            self.create_new_note()
+
+        elif selected_action == new_folder_action:
+            self.create_new_folder()
 
     def update_preview(self):
         markdown_text = self.editor.toPlainText()
