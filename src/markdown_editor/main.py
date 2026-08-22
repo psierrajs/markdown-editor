@@ -5,8 +5,11 @@ from markdown_it import MarkdownIt
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
+    QAbstractItemView,
     QApplication,
     QFileDialog,
+    QListWidget,
+    QListWidgetItem,
     QMainWindow,
     QMessageBox,
     QSplitter,
@@ -21,6 +24,7 @@ class MarkdownEditor(QMainWindow):
 
         self.current_file = None
         self.is_modified = False
+        self.current_folder = None
 
         self.setWindowTitle("Markdown Editor")
         self.resize(900, 600)
@@ -33,12 +37,22 @@ class MarkdownEditor(QMainWindow):
 
         self.preview = QTextBrowser()
 
-        splitter = QSplitter(Qt.Horizontal)
-        splitter.addWidget(self.editor)
-        splitter.addWidget(self.preview)
-        splitter.setSizes([450, 450])
+        self.file_list = QListWidget()
+        self.file_list.setEnabled(True)
+        self.file_list.setSelectionMode(QListWidget.SingleSelection)
+        self.file_list.itemClicked.connect(self.open_file_from_sidebar)
 
-        self.setCentralWidget(splitter)
+        editor_splitter = QSplitter(Qt.Horizontal)
+        editor_splitter.addWidget(self.editor)
+        editor_splitter.addWidget(self.preview)
+        editor_splitter.setSizes([450, 450])
+
+        main_splitter = QSplitter(Qt.Horizontal)
+        main_splitter.addWidget(self.file_list)
+        main_splitter.addWidget(editor_splitter)
+        main_splitter.setSizes([200, 700])
+
+        self.setCentralWidget(main_splitter)
 
         self.create_menu()
         self.update_window_title()
@@ -63,6 +77,10 @@ class MarkdownEditor(QMainWindow):
         open_action.triggered.connect(self.open_file)
         file_menu.addAction(open_action)
 
+        open_folder_action = QAction("Open Folder", self)
+        open_folder_action.triggered.connect(self.open_folder)
+        file_menu.addAction(open_folder_action)
+
         save_action = QAction("Save", self)
         save_action.setShortcut("Ctrl+S")
         save_action.triggered.connect(self.save_file)
@@ -72,6 +90,65 @@ class MarkdownEditor(QMainWindow):
         save_as_action.setShortcut("Ctrl+Shift+S")
         save_as_action.triggered.connect(self.save_file_as)
         file_menu.addAction(save_as_action)
+
+    def open_folder(self):
+        folder = QFileDialog.getExistingDirectory(
+            self,
+            "Open Folder",
+            "",
+        )
+
+        if not folder:
+            return
+
+        self.current_folder = Path(folder)
+        self.load_markdown_files()
+
+
+    def load_markdown_files(self):
+        self.file_list.clear()
+
+        if self.current_folder is None:
+            return
+
+        markdown_files = sorted(
+            self.current_folder.glob("*.md"),
+            key=lambda path: path.name.lower(),
+        )
+
+        for path in markdown_files:
+            item = QListWidgetItem(path.name)
+
+            # Store the path as a normal string
+            item.setData(Qt.UserRole, str(path))
+
+            self.file_list.addItem(item)
+
+    def open_file_from_sidebar(self, item):
+        if not self.confirm_unsaved_changes():
+            return
+
+        path = Path(item.data(Qt.UserRole))
+
+        try:
+            content = path.read_text(encoding="utf-8")
+        except OSError as error:
+            QMessageBox.critical(
+                self,
+                "Error",
+                f"Could not open file:\n{error}",
+            )
+            return
+
+        self.editor.blockSignals(True)
+        self.editor.setPlainText(content)
+        self.editor.blockSignals(False)
+
+        self.current_file = path
+        self.is_modified = False
+
+        self.update_preview()
+        self.update_window_title()
 
     def document_modified(self):
         self.is_modified = True
@@ -216,6 +293,11 @@ class MarkdownEditor(QMainWindow):
 
         self.current_file = path
         self.is_modified = False
+        if (
+            self.current_folder is not None
+            and path.parent == self.current_folder
+        ):
+            self.load_markdown_files()
         self.update_window_title()
         return True
 
