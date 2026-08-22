@@ -119,10 +119,10 @@ class MarkdownEditor(QMainWindow):
 
         path_data = item.data(0, Qt.UserRole)
 
-        if path_data is not None:
-            path = Path(path_data)
-        else:
-            path = self.get_path_for_tree_item(item)
+        if path_data is None:
+            return
+
+        path = Path(path_data)
 
         if path.is_dir():
             message = (
@@ -185,10 +185,10 @@ class MarkdownEditor(QMainWindow):
 
         path_data = item.data(0, Qt.UserRole)
 
-        if path_data is not None:
-            current_path = Path(path_data)
-        else:
-            current_path = self.get_path_for_tree_item(item)
+        if path_data is None:
+            return
+
+        current_path = Path(path_data)
 
         new_name, ok = QInputDialog.getText(
             self,
@@ -236,20 +236,6 @@ class MarkdownEditor(QMainWindow):
         self.load_markdown_files()
         self.update_window_title()
 
-    def get_path_for_tree_item(self, item):
-        if item.parent() is None:
-            return self.current_folder
-
-        parts = []
-        current_item = item
-
-        while current_item.parent() is not None:
-            parts.append(current_item.text(0))
-            current_item = current_item.parent()
-
-        parts.reverse()
-
-        return self.current_folder.joinpath(*parts)
 
     def update_preview(self):
         markdown_text = self.editor.toPlainText()
@@ -387,24 +373,8 @@ class MarkdownEditor(QMainWindow):
         item = selected_items[0]
         path_data = item.data(0, Qt.UserRole)
 
-        # Root or folder items currently have no stored path.
         if path_data is None:
-            item_text = item.text(0)
-
-            if item.parent() is None:
-                return self.current_folder
-
-            parts = []
-
-            current_item = item
-
-            while current_item.parent() is not None:
-                parts.append(current_item.text(0))
-                current_item = current_item.parent()
-
-            parts.reverse()
-
-            return self.current_folder.joinpath(*parts)
+            return self.current_folder
 
         path = Path(path_data)
 
@@ -436,6 +406,12 @@ class MarkdownEditor(QMainWindow):
         root_item = QTreeWidgetItem(
             self.file_tree,
             [self.current_folder.name],
+        )
+
+        root_item.setData(
+            0,
+            Qt.UserRole,
+            str(self.current_folder),
         )
 
         root_item.setExpanded(True)
@@ -472,6 +448,12 @@ class MarkdownEditor(QMainWindow):
                 )
                 folder_item.setIcon(0, folder_icon)
 
+                folder_item.setData(
+                    0,
+                    Qt.UserRole,
+                    str(path),
+                )
+
                 self.add_folder_to_tree(
                     path,
                     folder_item,
@@ -495,15 +477,18 @@ class MarkdownEditor(QMainWindow):
                 )
 
     def open_file_from_sidebar(self, item):
-        if not self.confirm_unsaved_changes():
-            return
-
         path_data = item.data(0, Qt.UserRole)
 
         if path_data is None:
             return
 
         path = Path(path_data)
+
+        if path.is_dir():
+            return
+
+        if not self.confirm_unsaved_changes():
+            return
 
         try:
             content = path.read_text(encoding="utf-8")
