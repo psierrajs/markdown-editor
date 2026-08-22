@@ -1,4 +1,6 @@
 import sys
+import shutil
+from pathlib import Path
 from pathlib import Path
 from PySide6.QtWidgets import QStyle
 
@@ -82,6 +84,7 @@ class MarkdownEditor(QMainWindow):
         new_note_action = menu.addAction("New Note")
         new_folder_action = menu.addAction("New Folder")
         rename_action = menu.addAction("Rename")
+        delete_action = menu.addAction("Delete")
 
         selected_action = menu.exec(
             self.file_tree.viewport().mapToGlobal(position)
@@ -95,6 +98,74 @@ class MarkdownEditor(QMainWindow):
 
         elif selected_action == rename_action:
             self.rename_selected_item()
+        elif selected_action == delete_action:
+            self.delete_selected_item()
+
+    def delete_selected_item(self):
+        selected_items = self.file_tree.selectedItems()
+
+        if not selected_items:
+            return
+
+        item = selected_items[0]
+
+        if item.parent() is None:
+            QMessageBox.information(
+                self,
+                "Cannot Delete",
+                "The root folder cannot be deleted from the application.",
+            )
+            return
+
+        path_data = item.data(0, Qt.UserRole)
+
+        if path_data is not None:
+            path = Path(path_data)
+        else:
+            path = self.get_path_for_tree_item(item)
+
+        if path.is_dir():
+            message = (
+                f"Delete folder '{path.name}' and all of its contents?"
+            )
+        else:
+            message = f"Delete '{path.name}'?"
+
+        response = QMessageBox.warning(
+            self,
+            "Confirm Delete",
+            message,
+            QMessageBox.Yes | QMessageBox.Cancel,
+            QMessageBox.Cancel,
+        )
+
+        if response != QMessageBox.Yes:
+            return
+
+        try:
+            if path.is_dir():
+                shutil.rmtree(path)
+            else:
+                path.unlink()
+        except OSError as error:
+            QMessageBox.critical(
+                self,
+                "Error",
+                f"Could not delete item:\n{error}",
+            )
+            return
+
+        if self.current_file == path:
+            self.editor.blockSignals(True)
+            self.editor.clear()
+            self.editor.blockSignals(False)
+
+            self.current_file = None
+            self.is_modified = False
+            self.update_preview()
+            self.update_window_title()
+
+        self.load_markdown_files()
 
     def rename_selected_item(self):
         selected_items = self.file_tree.selectedItems()
