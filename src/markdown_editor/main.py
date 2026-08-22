@@ -5,16 +5,15 @@ from markdown_it import MarkdownIt
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
-    QAbstractItemView,
     QApplication,
     QFileDialog,
-    QListWidget,
-    QListWidgetItem,
     QMainWindow,
     QMessageBox,
     QSplitter,
     QTextBrowser,
     QTextEdit,
+    QTreeWidget,
+    QTreeWidgetItem,
 )
 
 
@@ -37,10 +36,9 @@ class MarkdownEditor(QMainWindow):
 
         self.preview = QTextBrowser()
 
-        self.file_list = QListWidget()
-        self.file_list.setEnabled(True)
-        self.file_list.setSelectionMode(QListWidget.SingleSelection)
-        self.file_list.itemClicked.connect(self.open_file_from_sidebar)
+        self.file_tree = QTreeWidget()
+        self.file_tree.setHeaderHidden(True)
+        self.file_tree.itemClicked.connect(self.open_file_from_sidebar)
 
         editor_splitter = QSplitter(Qt.Horizontal)
         editor_splitter.addWidget(self.editor)
@@ -48,7 +46,7 @@ class MarkdownEditor(QMainWindow):
         editor_splitter.setSizes([450, 450])
 
         main_splitter = QSplitter(Qt.Horizontal)
-        main_splitter.addWidget(self.file_list)
+        main_splitter.addWidget(self.file_tree)
         main_splitter.addWidget(editor_splitter)
         main_splitter.setSizes([200, 700])
 
@@ -106,29 +104,67 @@ class MarkdownEditor(QMainWindow):
 
 
     def load_markdown_files(self):
-        self.file_list.clear()
+        self.file_tree.clear()
 
         if self.current_folder is None:
             return
 
-        markdown_files = sorted(
-            self.current_folder.glob("*.md"),
-            key=lambda path: path.name.lower(),
+        root_item = QTreeWidgetItem(
+            self.file_tree,
+            [self.current_folder.name],
         )
 
-        for path in markdown_files:
-            item = QListWidgetItem(path.name)
+        root_item.setExpanded(True)
 
-            # Store the path as a normal string
-            item.setData(Qt.UserRole, str(path))
+        self.add_folder_to_tree(
+            self.current_folder,
+            root_item,
+        )
+        self.file_tree.expandAll()
 
-            self.file_list.addItem(item)
+    def add_folder_to_tree(self, folder, parent_item):
+        entries = sorted(
+            folder.iterdir(),
+            key=lambda path: (
+                not path.is_dir(),
+                path.name.lower(),
+            ),
+        )
+
+        for path in entries:
+            if path.is_dir():
+                folder_item = QTreeWidgetItem(
+                    parent_item,
+                    [path.name],
+                )
+
+                self.add_folder_to_tree(
+                    path,
+                    folder_item,
+                )
+
+            elif path.suffix.lower() == ".md":
+                file_item = QTreeWidgetItem(
+                    parent_item,
+                    [path.name],
+                )
+
+                file_item.setData(
+                    0,
+                    Qt.UserRole,
+                    str(path),
+                )
 
     def open_file_from_sidebar(self, item):
         if not self.confirm_unsaved_changes():
             return
 
-        path = Path(item.data(Qt.UserRole))
+        path_data = item.data(0, Qt.UserRole)
+
+        if path_data is None:
+            return
+
+        path = Path(path_data)
 
         try:
             content = path.read_text(encoding="utf-8")
