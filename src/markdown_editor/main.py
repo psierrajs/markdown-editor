@@ -42,6 +42,8 @@ class MarkdownEditor(QMainWindow):
 
         self.create_menu()
         self.update_window_title()
+        self.statusBar()
+        self.update_status_bar()
 
     def update_preview(self):
         markdown_text = self.editor.toPlainText()
@@ -74,6 +76,25 @@ class MarkdownEditor(QMainWindow):
     def document_modified(self):
         self.is_modified = True
         self.update_window_title()
+        self.update_status_bar()
+
+    def update_status_bar(self):
+        text = self.editor.toPlainText()
+
+        lines = text.count("\n") + 1 if text else 0
+        words = len(text.split())
+
+        if self.current_file is None:
+            file_info = "Untitled"
+        else:
+            file_info = str(self.current_file)
+
+        modified_info = "Modified" if self.is_modified else "Saved"
+
+        self.statusBar().showMessage(
+            f"{file_info}    |    {lines} lines    |    "
+            f"{words} words    |    {modified_info}"
+        )
 
     def update_window_title(self):
         if self.current_file is None:
@@ -83,6 +104,7 @@ class MarkdownEditor(QMainWindow):
 
         marker = " *" if self.is_modified else ""
         self.setWindowTitle(f"{filename}{marker} - Markdown Editor")
+        self.update_status_bar()
 
     def confirm_unsaved_changes(self):
         if not self.is_modified:
