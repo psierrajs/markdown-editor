@@ -1,5 +1,6 @@
 import sys
 import shutil
+from markdown_editor.highlighter import MarkdownHighlighter
 from pathlib import Path
 from pathlib import Path
 from PySide6.QtWidgets import QStyle
