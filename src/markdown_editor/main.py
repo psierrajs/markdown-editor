@@ -1,4 +1,5 @@
 import sys
+from PySide6.QtWidgets import QStyle
 from pathlib import Path
 
 from markdown_it import MarkdownIt
@@ -261,6 +262,39 @@ class MarkdownEditor(QMainWindow):
                 path.name.lower(),
             ),
         )
+
+        if path.is_dir():
+            folder_item = QTreeWidgetItem(
+                parent_item,
+                [path.name],
+            )
+
+            folder_icon = self.style().standardIcon(
+                QStyle.StandardPixmap.SP_DirIcon
+            )
+            folder_item.setIcon(0, folder_icon)
+
+            self.add_folder_to_tree(
+                path,
+                folder_item,
+            )
+
+        elif path.suffix.lower() == ".md":
+            file_item = QTreeWidgetItem(
+                parent_item,
+                [path.name],
+            )
+
+            file_icon = self.style().standardIcon(
+                QStyle.StandardPixmap.SP_FileIcon
+            )
+            file_item.setIcon(0, file_icon)
+
+            file_item.setData(
+                0,
+                Qt.UserRole,
+                str(path),
+            )
 
         for path in entries:
             if path.is_dir():
