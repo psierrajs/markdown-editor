@@ -81,6 +81,7 @@ class MarkdownEditor(QMainWindow):
 
         new_note_action = menu.addAction("New Note")
         new_folder_action = menu.addAction("New Folder")
+        rename_action = menu.addAction("Rename")
 
         selected_action = menu.exec(
             self.file_tree.viewport().mapToGlobal(position)
@@ -91,6 +92,93 @@ class MarkdownEditor(QMainWindow):
 
         elif selected_action == new_folder_action:
             self.create_new_folder()
+
+        elif selected_action == rename_action:
+            self.rename_selected_item()
+
+    def rename_selected_item(self):
+        selected_items = self.file_tree.selectedItems()
+
+        if not selected_items:
+            return
+
+        item = selected_items[0]
+
+        if item.parent() is None:
+            QMessageBox.information(
+                self,
+                "Cannot Rename",
+                "The root folder cannot be renamed from the application.",
+            )
+            return
+
+        path_data = item.data(0, Qt.UserRole)
+
+        if path_data is not None:
+            current_path = Path(path_data)
+        else:
+            current_path = self.get_path_for_tree_item(item)
+
+        new_name, ok = QInputDialog.getText(
+            self,
+            "Rename",
+            "New name:",
+            text=current_path.name,
+        )
+
+        if not ok or not new_name.strip():
+            return
+
+        new_name = new_name.strip()
+
+        if current_path.is_file():
+            if current_path.suffix.lower() == ".md":
+                if not new_name.lower().endswith(".md"):
+                    new_name += ".md"
+
+        new_path = current_path.parent / new_name
+
+        if new_path == current_path:
+            return
+
+        if new_path.exists():
+            QMessageBox.warning(
+                self,
+                "Name Already Exists",
+                "An item with that name already exists.",
+            )
+            return
+
+        try:
+            current_path.rename(new_path)
+        except OSError as error:
+            QMessageBox.critical(
+                self,
+                "Error",
+                f"Could not rename item:\n{error}",
+            )
+            return
+
+        if self.current_file == current_path:
+            self.current_file = new_path
+
+        self.load_markdown_files()
+        self.update_window_title()
+
+    def get_path_for_tree_item(self, item):
+        if item.parent() is None:
+            return self.current_folder
+
+        parts = []
+        current_item = item
+
+        while current_item.parent() is not None:
+            parts.append(current_item.text(0))
+            current_item = current_item.parent()
+
+        parts.reverse()
+
+        return self.current_folder.joinpath(*parts)
 
     def update_preview(self):
         markdown_text = self.editor.toPlainText()
