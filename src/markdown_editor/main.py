@@ -1,12 +1,16 @@
 import sys
 from pathlib import Path
 
+from markdown_it import MarkdownIt
+from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
     QApplication,
     QFileDialog,
     QMainWindow,
     QMessageBox,
+    QSplitter,
+    QTextBrowser,
     QTextEdit,
 )
 
@@ -21,12 +25,28 @@ class MarkdownEditor(QMainWindow):
         self.setWindowTitle("Markdown Editor")
         self.resize(900, 600)
 
+        self.markdown = MarkdownIt()
+
         self.editor = QTextEdit()
         self.editor.textChanged.connect(self.document_modified)
-        self.setCentralWidget(self.editor)
+        self.editor.textChanged.connect(self.update_preview)
+
+        self.preview = QTextBrowser()
+
+        splitter = QSplitter(Qt.Horizontal)
+        splitter.addWidget(self.editor)
+        splitter.addWidget(self.preview)
+        splitter.setSizes([450, 450])
+
+        self.setCentralWidget(splitter)
 
         self.create_menu()
         self.update_window_title()
+
+    def update_preview(self):
+        markdown_text = self.editor.toPlainText()
+        html = self.markdown.render(markdown_text)
+        self.preview.setHtml(html)
 
     def create_menu(self):
         file_menu = self.menuBar().addMenu("File")
@@ -92,6 +112,7 @@ class MarkdownEditor(QMainWindow):
 
         self.editor.blockSignals(True)
         self.editor.clear()
+        self.update_preview()
         self.editor.blockSignals(False)
 
         self.current_file = None
@@ -126,6 +147,7 @@ class MarkdownEditor(QMainWindow):
 
         self.editor.blockSignals(True)
         self.editor.setPlainText(content)
+        self.update_preview()
         self.editor.blockSignals(False)
 
         self.current_file = path
