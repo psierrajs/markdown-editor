@@ -13,5 +13,9 @@ dependencies = [
     "markdown-it-py",
 ]
 
+[project.scripts]
+markdown-editor = "markdown_editor.main:main"
+
 [tool.setuptools.packages.find]
 where = ["src"]
+
