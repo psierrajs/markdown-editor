@@ -6,7 +6,7 @@ from pathlib import Path
 from PySide6.QtWidgets import QStyle
 
 from markdown_it import MarkdownIt
-from PySide6.QtCore import Qt, QPoint
+from PySide6.QtCore import Qt, QPoint, QSettings
 from PySide6.QtGui import (
     QAction,
     QColor,
@@ -98,6 +98,11 @@ class MarkdownEditor(QMainWindow):
     def __init__(self):
         super().__init__()
 
+        self.settings = QSettings(
+            "MarkdownEditor",
+            "MarkdownEditor",
+        )
+
         self.current_file = None
         self.is_modified = False
         self.current_folder = None
@@ -119,6 +124,7 @@ class MarkdownEditor(QMainWindow):
         self.editor.textChanged.connect(self.update_preview)
 
         self.preview = QTextBrowser()
+        self.load_settings()
 
         self.file_tree = QTreeWidget()
         self.file_tree.setHeaderHidden(True)
@@ -148,10 +154,49 @@ class MarkdownEditor(QMainWindow):
         self.statusBar()
         self.update_status_bar()
 
+    def load_settings(self):
+        font_size = self.settings.value(
+            "editor/font_size",
+            13,
+            type=int,
+        )
+
+        preview_visible = self.settings.value(
+            "view/preview_visible",
+            True,
+            type=bool,
+        )
+
+        word_wrap = self.settings.value(
+            "editor/word_wrap",
+            True,
+            type=bool,
+        )
+
+        font = self.editor.font()
+        font.setPointSize(font_size)
+        self.editor.setFont(font)
+
+        self.preview.setVisible(preview_visible)
+
+        if word_wrap:
+            self.editor.setLineWrapMode(
+                QTextEdit.LineWrapMode.WidgetWidth
+            )
+        else:
+            self.editor.setLineWrapMode(
+                QTextEdit.LineWrapMode.NoWrap
+            )
+
     def increase_font_size(self):
         font = self.editor.font()
         font.setPointSize(font.pointSize() + 1)
         self.editor.setFont(font)
+
+        self.settings.setValue(
+            "editor/font_size",
+            font.pointSize(),
+        )
 
 
     def decrease_font_size(self):
@@ -161,11 +206,21 @@ class MarkdownEditor(QMainWindow):
             font.setPointSize(font.pointSize() - 1)
             self.editor.setFont(font)
 
+            self.settings.setValue(
+                "editor/font_size",
+                font.pointSize(),
+            )
+
 
     def reset_font_size(self):
         font = self.editor.font()
         font.setPointSize(13)
         self.editor.setFont(font)
+
+        self.settings.setValue(
+            "editor/font_size",
+            font.pointSize(),
+        )
 
     def toggle_word_wrap(self, checked):
         if checked:
@@ -177,8 +232,17 @@ class MarkdownEditor(QMainWindow):
                 QTextEdit.LineWrapMode.NoWrap
             )
 
+        self.settings.setValue(
+            "editor/word_wrap",
+            checked,
+        )
+
     def toggle_preview(self, checked):
         self.preview.setVisible(checked)
+        self.settings.setValue(
+            "view/preview_visible",
+            checked,
+        )
 
     def show_tree_context_menu(self, position):
         if self.current_folder is None:
