@@ -108,7 +108,7 @@ class MarkdownEditor(QMainWindow):
         self.markdown = MarkdownIt()
         self.editor = QTextEdit()
         editor_font = self.editor.font()
-        editor_font.setPointSize(13)
+        editor_font.setPointSize(13)    
         self.editor.setFont(editor_font)
         self.highlighter = MarkdownHighlighter(
             self.editor.document()
@@ -166,6 +166,16 @@ class MarkdownEditor(QMainWindow):
         font = self.editor.font()
         font.setPointSize(13)
         self.editor.setFont(font)
+
+    def toggle_word_wrap(self, checked):
+        if checked:
+            self.editor.setLineWrapMode(
+                QTextEdit.LineWrapMode.WidgetWidth
+            )
+        else:
+            self.editor.setLineWrapMode(
+                QTextEdit.LineWrapMode.NoWrap
+            )
 
     def toggle_preview(self, checked):
         self.preview.setVisible(checked)
@@ -400,6 +410,15 @@ class MarkdownEditor(QMainWindow):
         reset_font_action.setShortcut("Ctrl+0")
         reset_font_action.triggered.connect(self.reset_font_size)
         view_menu.addAction(reset_font_action)
+
+        view_menu.addSeparator()
+
+        self.word_wrap_action = QAction("Word Wrap", self)
+        self.word_wrap_action.setCheckable(True)
+        self.word_wrap_action.setChecked(True)
+        self.word_wrap_action.triggered.connect(self.toggle_word_wrap)
+
+        view_menu.addAction(self.word_wrap_action)
 
         view_menu.addAction(self.preview_action)
 
