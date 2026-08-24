@@ -107,6 +107,9 @@ class MarkdownEditor(QMainWindow):
 
         self.markdown = MarkdownIt()
         self.editor = QTextEdit()
+        editor_font = self.editor.font()
+        editor_font.setPointSize(13)
+        self.editor.setFont(editor_font)
         self.highlighter = MarkdownHighlighter(
             self.editor.document()
         )
@@ -144,6 +147,25 @@ class MarkdownEditor(QMainWindow):
         self.update_window_title()
         self.statusBar()
         self.update_status_bar()
+
+    def increase_font_size(self):
+        font = self.editor.font()
+        font.setPointSize(font.pointSize() + 1)
+        self.editor.setFont(font)
+
+
+    def decrease_font_size(self):
+        font = self.editor.font()
+
+        if font.pointSize() > 8:
+            font.setPointSize(font.pointSize() - 1)
+            self.editor.setFont(font)
+
+
+    def reset_font_size(self):
+        font = self.editor.font()
+        font.setPointSize(13)
+        self.editor.setFont(font)
 
     def toggle_preview(self, checked):
         self.preview.setVisible(checked)
@@ -361,6 +383,23 @@ class MarkdownEditor(QMainWindow):
         self.preview_action.setCheckable(True)
         self.preview_action.setChecked(True)
         self.preview_action.triggered.connect(self.toggle_preview)
+
+        view_menu.addSeparator()
+
+        increase_font_action = QAction("Increase Font Size", self)
+        increase_font_action.setShortcut("Ctrl++")
+        increase_font_action.triggered.connect(self.increase_font_size)
+        view_menu.addAction(increase_font_action)
+
+        decrease_font_action = QAction("Decrease Font Size", self)
+        decrease_font_action.setShortcut("Ctrl+-")
+        decrease_font_action.triggered.connect(self.decrease_font_size)
+        view_menu.addAction(decrease_font_action)
+
+        reset_font_action = QAction("Reset Font Size", self)
+        reset_font_action.setShortcut("Ctrl+0")
+        reset_font_action.triggered.connect(self.reset_font_size)
+        view_menu.addAction(reset_font_action)
 
         view_menu.addAction(self.preview_action)
 
