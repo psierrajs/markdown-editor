@@ -145,6 +145,9 @@ class MarkdownEditor(QMainWindow):
         self.statusBar()
         self.update_status_bar()
 
+    def toggle_preview(self, checked):
+        self.preview.setVisible(checked)
+
     def show_tree_context_menu(self, position):
         if self.current_folder is None:
             return
@@ -351,6 +354,15 @@ class MarkdownEditor(QMainWindow):
         save_as_action.setShortcut("Ctrl+Shift+S")
         save_as_action.triggered.connect(self.save_file_as)
         file_menu.addAction(save_as_action)
+
+        view_menu = self.menuBar().addMenu("View")
+
+        self.preview_action = QAction("Show Preview", self)
+        self.preview_action.setCheckable(True)
+        self.preview_action.setChecked(True)
+        self.preview_action.triggered.connect(self.toggle_preview)
+
+        view_menu.addAction(self.preview_action)
 
     def create_new_note(self):
         if self.current_folder is None:
