@@ -124,7 +124,8 @@ class MarkdownEditor(QMainWindow):
         self.editor.textChanged.connect(self.update_preview)
 
         self.preview = QTextBrowser()
-        self.load_settings()
+
+
 
         self.file_tree = QTreeWidget()
         self.file_tree.setHeaderHidden(True)
@@ -137,22 +138,49 @@ class MarkdownEditor(QMainWindow):
             self.show_tree_context_menu
         )
 
-        editor_splitter = QSplitter(Qt.Horizontal)
-        editor_splitter.addWidget(self.editor)
-        editor_splitter.addWidget(self.preview)
-        editor_splitter.setSizes([450, 450])
+        self.editor_splitter = QSplitter(Qt.Horizontal)
+        self.editor_splitter.addWidget(self.editor)
+        self.editor_splitter.addWidget(self.preview)
+        self.editor_splitter.setSizes([450, 450])
 
-        main_splitter = QSplitter(Qt.Horizontal)
-        main_splitter.addWidget(self.file_tree)
-        main_splitter.addWidget(editor_splitter)
-        main_splitter.setSizes([200, 700])
+        self.main_splitter = QSplitter(Qt.Horizontal)
+        self.main_splitter.addWidget(self.file_tree)
+        self.main_splitter.addWidget(self.editor_splitter)
+        self.main_splitter.setSizes([200, 700])
 
-        self.setCentralWidget(main_splitter)
+        self.setCentralWidget(self.main_splitter)
 
+        self.setCentralWidget(self.main_splitter)
         self.create_menu()
+        self.load_settings()
+        self.restore_window_state()
         self.update_window_title()
         self.statusBar()
         self.update_status_bar()
+
+    def restore_window_state(self):
+        geometry = self.settings.value("window/geometry")
+
+        if geometry is not None:
+            self.restoreGeometry(geometry)
+
+        main_splitter_state = self.settings.value(
+            "window/main_splitter"
+        )
+
+        if main_splitter_state is not None:
+            self.main_splitter.restoreState(
+                main_splitter_state
+            )
+
+        editor_splitter_state = self.settings.value(
+            "window/editor_splitter"
+        )
+
+        if editor_splitter_state is not None:
+            self.editor_splitter.restoreState(
+                editor_splitter_state
+            )
 
     def load_settings(self):
         font_size = self.settings.value(
@@ -187,6 +215,8 @@ class MarkdownEditor(QMainWindow):
             self.editor.setLineWrapMode(
                 QTextEdit.LineWrapMode.NoWrap
             )
+
+
 
     def increase_font_size(self):
         font = self.editor.font()
@@ -872,6 +902,21 @@ class MarkdownEditor(QMainWindow):
 
     def closeEvent(self, event):
         if self.confirm_unsaved_changes():
+            self.settings.setValue(
+                "window/geometry",
+                self.saveGeometry(),
+            )
+
+            self.settings.setValue(
+                "window/main_splitter",
+                self.main_splitter.saveState(),
+            )
+
+            self.settings.setValue(
+                "window/editor_splitter",
+                self.editor_splitter.saveState(),
+            )
+
             event.accept()
         else:
             event.ignore()
