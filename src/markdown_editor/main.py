@@ -154,9 +154,29 @@ class MarkdownEditor(QMainWindow):
         self.create_menu()
         self.load_settings()
         self.restore_window_state()
+        self.restore_last_folder()
         self.update_window_title()
         self.statusBar()
         self.update_status_bar()
+
+    def restore_last_folder(self):
+        folder = self.settings.value(
+            "workspace/last_folder"
+        )
+
+        if not folder:
+            return
+
+        path = Path(folder)
+
+        if not path.exists():
+            return
+
+        if not path.is_dir():
+            return
+
+        self.current_folder = path
+        self.load_markdown_files()
 
     def restore_window_state(self):
         geometry = self.settings.value("window/geometry")
@@ -633,6 +653,12 @@ class MarkdownEditor(QMainWindow):
             return
 
         self.current_folder = Path(folder)
+
+        self.settings.setValue(
+            "workspace/last_folder",
+            str(self.current_folder),
+        )
+
         self.load_markdown_files()
 
 
