@@ -4,6 +4,10 @@ from markdown_editor.highlighter import MarkdownHighlighter
 from pathlib import Path
 from pathlib import Path
 from PySide6.QtWidgets import QStyle
+from pygments import highlight
+from pygments.formatters import HtmlFormatter
+from pygments.lexers import get_lexer_by_name
+from pygments.util import ClassNotFound
 
 from markdown_it import MarkdownIt
 from PySide6.QtCore import Qt, QPoint, QSettings
@@ -110,7 +114,12 @@ class MarkdownEditor(QMainWindow):
         self.setWindowTitle("Markdown Editor")
         self.resize(900, 600)
 
-        self.markdown = MarkdownIt()
+        self.markdown = MarkdownIt(
+            "commonmark",
+            {
+                "highlight": self.highlight_code,
+            },
+        )        
         self.editor = QTextEdit()
         editor_font = self.editor.font()
         editor_font.setPointSize(13)    
@@ -158,6 +167,23 @@ class MarkdownEditor(QMainWindow):
         self.update_window_title()
         self.statusBar()
         self.update_status_bar()
+
+    def highlight_code(self, code, language, attrs):
+        if not language:
+            return ""
+
+        try:
+            lexer = get_lexer_by_name(language)
+        except ClassNotFound:
+            return ""
+
+        formatter = HtmlFormatter()
+
+        return highlight(
+            code,
+            lexer,
+            formatter,
+        )
 
     def restore_last_folder(self):
         folder = self.settings.value(
@@ -471,7 +497,34 @@ class MarkdownEditor(QMainWindow):
     def update_preview(self):
         markdown_text = self.editor.toPlainText()
         html = self.markdown.render(markdown_text)
-        self.preview.setHtml(html)
+
+        formatter = HtmlFormatter()
+        pygments_css = formatter.get_style_defs(".highlight")
+
+        styled_html = f"""
+        <html>
+        <head>
+            <style>
+                {pygments_css}
+
+                pre {{
+                    padding: 10px;
+                    border-radius: 6px;
+                    white-space: pre-wrap;
+                }}
+
+                code {{
+                    font-family: monospace;
+                }}
+            </style>
+        </head>
+        <body>
+            {html}
+        </body>
+        </html>
+        """
+
+        self.preview.setHtml(styled_html)
 
     def create_menu(self):
         file_menu = self.menuBar().addMenu("File")
