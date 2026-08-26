@@ -169,10 +169,17 @@ class MarkdownEditor(QMainWindow):
 
         path = Path(folder)
 
-        if not path.exists():
-            return
+        if not path.exists() or not path.is_dir():
+            QMessageBox.information(
+                self,
+                "Folder Not Found",
+                "The previously opened folder could not be found.",
+            )
 
-        if not path.is_dir():
+            self.settings.remove(
+                "workspace/last_folder"
+            )
+
             return
 
         self.current_folder = path
