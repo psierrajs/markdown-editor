@@ -1,5 +1,7 @@
 import sys
 import shutil
+from datetime import datetime
+from markdown_editor.editor import MarkdownTextEdit
 from markdown_editor.highlighter import MarkdownHighlighter
 from pathlib import Path
 from pathlib import Path
@@ -10,13 +12,15 @@ from pygments.lexers import get_lexer_by_name
 from pygments.util import ClassNotFound
 
 from markdown_it import MarkdownIt
-from PySide6.QtCore import Qt, QPoint, QSettings
+from PySide6.QtCore import QPoint, QSettings, Qt, QUrl
 from PySide6.QtGui import (
     QAction,
     QColor,
     QFont,
     QSyntaxHighlighter,
     QTextCharFormat,
+    QImage,
+    QPixmap,
 )
 from PySide6.QtWidgets import (
     QApplication,
@@ -120,7 +124,10 @@ class MarkdownEditor(QMainWindow):
                 "highlight": self.highlight_code,
             },
         )        
-        self.editor = QTextEdit()
+        self.editor = MarkdownTextEdit()
+        self.editor.image_pasted.connect(
+            self.handle_pasted_image
+        )        
         editor_font = self.editor.font()
         editor_font.setPointSize(13)    
         self.editor.setFont(editor_font)
@@ -167,6 +174,68 @@ class MarkdownEditor(QMainWindow):
         self.update_window_title()
         self.statusBar()
         self.update_status_bar()
+
+    def handle_pasted_image(self, image_data):
+        if self.current_file is None:
+            QMessageBox.information(
+                self,
+                "Save Note First",
+                "Save the Markdown note before pasting an image.",
+            )
+            return
+
+        if isinstance(image_data, QPixmap):
+            image = image_data.toImage()
+        elif isinstance(image_data, QImage):
+            image = image_data
+        else:
+            QMessageBox.warning(
+                self,
+                "Unsupported Image",
+                "The clipboard image could not be read.",
+            )
+            return
+
+        attachments_folder = (
+            self.current_file.parent / "attachments"
+        )
+
+        try:
+            attachments_folder.mkdir(
+                parents=True,
+                exist_ok=True,
+            )
+        except OSError as error:
+            QMessageBox.critical(
+                self,
+                "Error",
+                f"Could not create attachments folder:\n{error}",
+            )
+            return
+
+        timestamp = datetime.now().strftime(
+            "%Y%m%d-%H%M%S-%f"
+        )
+
+        filename = f"image-{timestamp}.png"
+        image_path = attachments_folder / filename
+
+        if not image.save(str(image_path), "PNG"):
+            QMessageBox.critical(
+                self,
+                "Error",
+                "Could not save the pasted image.",
+            )
+            return
+
+        relative_path = image_path.relative_to(
+            self.current_file.parent
+        ).as_posix()
+
+        markdown = f"![image]({relative_path})"
+
+        cursor = self.editor.textCursor()
+        cursor.insertText(markdown)
 
     def highlight_code(self, code, language, attrs):
         if not language:
@@ -523,6 +592,13 @@ class MarkdownEditor(QMainWindow):
         </body>
         </html>
         """
+
+        if self.current_file is not None:
+            base_path = str(self.current_file.parent) + "/"
+
+            self.preview.document().setBaseUrl(
+                QUrl.fromLocalFile(base_path)
+            )
 
         self.preview.setHtml(styled_html)
 
