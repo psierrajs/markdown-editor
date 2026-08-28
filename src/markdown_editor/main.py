@@ -12,7 +12,7 @@ from pygments.lexers import get_lexer_by_name
 from pygments.util import ClassNotFound
 
 from markdown_it import MarkdownIt
-from PySide6.QtCore import QPoint, QSettings, Qt, QUrl
+from PySide6.QtCore import QPoint, QSettings, Qt, QTimer, QUrl
 from PySide6.QtGui import (
     QAction,
     QColor,
@@ -137,7 +137,14 @@ class MarkdownEditor(QMainWindow):
 
 
         self.editor.textChanged.connect(self.document_modified)
-        self.editor.textChanged.connect(self.update_preview)
+        self.preview_timer = QTimer(self)
+        self.preview_timer.setSingleShot(True)
+        self.preview_timer.setInterval(250)
+        self.preview_timer.timeout.connect(self.update_preview)
+
+        self.editor.textChanged.connect(
+            self.schedule_preview_update
+        )
 
         self.preview = QTextBrowser()
 
@@ -174,6 +181,9 @@ class MarkdownEditor(QMainWindow):
         self.update_window_title()
         self.statusBar()
         self.update_status_bar()
+
+    def schedule_preview_update(self):
+        self.preview_timer.start()
 
     def handle_pasted_image(self, image_data):
         if self.current_file is None:
