@@ -1,5 +1,6 @@
 import sys
 import shutil
+from urllib.parse import quote
 from datetime import datetime
 from markdown_editor.editor import MarkdownTextEdit
 from markdown_editor.highlighter import MarkdownHighlighter
@@ -127,6 +128,9 @@ class MarkdownEditor(QMainWindow):
         self.editor = MarkdownTextEdit()
         self.editor.image_pasted.connect(
             self.handle_pasted_image
+        )
+        self.editor.image_dropped.connect(
+            self.handle_dropped_image
         )        
         editor_font = self.editor.font()
         editor_font.setPointSize(13)    
@@ -184,6 +188,75 @@ class MarkdownEditor(QMainWindow):
 
     def schedule_preview_update(self):
         self.preview_timer.start()
+    def handle_dropped_image(self, source_path):
+        if self.current_file is None:
+            QMessageBox.information(
+                self,
+                "Save Note First",
+                "Save the Markdown note before adding an image.",
+            )
+            return
+
+        source_path = Path(source_path)
+
+        if not source_path.exists():
+            return
+
+        attachments_folder = (
+            self.current_file.parent / "attachments"
+        )
+
+        try:
+            attachments_folder.mkdir(
+                parents=True,
+                exist_ok=True,
+            )
+        except OSError as error:
+            QMessageBox.critical(
+                self,
+                "Error",
+                f"Could not create attachments folder:\n{error}",
+            )
+            return
+
+        destination = attachments_folder / source_path.name
+
+        if destination.exists():
+            timestamp = datetime.now().strftime(
+                "%Y%m%d-%H%M%S"
+            )
+
+            destination = (
+                attachments_folder
+                / f"{source_path.stem}-{timestamp}{source_path.suffix}"
+            )
+
+        try:
+            shutil.copy2(
+                source_path,
+                destination,
+            )
+        except OSError as error:
+            QMessageBox.critical(
+                self,
+                "Error",
+                f"Could not copy image:\n{error}",
+            )
+            return
+
+        relative_path = destination.relative_to(
+            self.current_file.parent
+        ).as_posix()
+
+        encoded_path = quote(
+            relative_path,
+            safe="/",
+        )
+
+        markdown = f"![image]({encoded_path})"
+
+        cursor = self.editor.textCursor()
+        cursor.insertText(markdown)
 
     def handle_pasted_image(self, image_data):
         if self.current_file is None:
