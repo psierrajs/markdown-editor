@@ -131,7 +131,10 @@ class MarkdownEditor(QMainWindow):
         )
         self.editor.image_dropped.connect(
             self.handle_dropped_image
-        )        
+        )  
+        self.editor.cursorPositionChanged.connect(
+            self.update_status_bar
+        )      
         editor_font = self.editor.font()
         editor_font.setPointSize(13)    
         self.editor.setFont(editor_font)
@@ -1005,6 +1008,10 @@ class MarkdownEditor(QMainWindow):
         lines = text.count("\n") + 1 if text else 0
         words = len(text.split())
 
+        cursor = self.editor.textCursor()
+        line = cursor.blockNumber() + 1
+        column = cursor.positionInBlock() + 1
+
         if self.current_file is None:
             file_info = "Untitled"
         else:
@@ -1013,8 +1020,11 @@ class MarkdownEditor(QMainWindow):
         modified_info = "Modified" if self.is_modified else "Saved"
 
         self.statusBar().showMessage(
-            f"{file_info}    |    {lines} lines    |    "
-            f"{words} words    |    {modified_info}"
+            f"{file_info}    |    "
+            f"{lines} lines    |    "
+            f"{words} words    |    "
+            f"Ln {line}, Col {column}    |    "
+            f"{modified_info}"
         )
 
     def update_window_title(self):
