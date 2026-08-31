@@ -1,5 +1,7 @@
 import sys
 import shutil
+from PySide6.QtGui import QTextDocument
+from PySide6.QtWidgets import QLineEdit
 from urllib.parse import quote
 from datetime import datetime
 from markdown_editor.editor import MarkdownTextEdit
@@ -16,10 +18,8 @@ from markdown_it import MarkdownIt
 from PySide6.QtCore import QPoint, QSettings, Qt, QTimer, QUrl
 from PySide6.QtGui import (
     QAction,
-    QColor,
-    QFont,
-    QSyntaxHighlighter,
-    QTextCharFormat,
+    QKeySequence,
+    QFontDatabase,
     QImage,
     QPixmap,
 )
@@ -35,73 +35,10 @@ from PySide6.QtWidgets import (
     QTextBrowser,
     QTextEdit,
     QTreeWidget,
+    QToolBar,
     QTreeWidgetItem,
 )
 
-class MarkdownHighlighter(QSyntaxHighlighter):
-    def __init__(self, document):
-        super().__init__(document)
-
-        self.rules = []
-
-        heading_format = QTextCharFormat()
-        heading_format.setFontWeight(QFont.Weight.Bold)
-        heading_format.setForeground(QColor("#4A90E2"))
-
-        self.rules.append(
-            (r"^#{1,6}\s.*$", heading_format)
-        )
-
-        bold_format = QTextCharFormat()
-        bold_format.setFontWeight(QFont.Weight.Bold)
-
-        self.rules.append(
-            (r"\*\*[^*]+\*\*", bold_format)
-        )
-
-        italic_format = QTextCharFormat()
-        italic_format.setFontItalic(True)
-
-        self.rules.append(
-            (r"\*[^*]+\*", italic_format)
-        )
-
-        code_format = QTextCharFormat()
-        code_format.setFontFamily("monospace")
-        code_format.setForeground(QColor("#C7254E"))
-
-        self.rules.append(
-            (r"`[^`]+`", code_format)
-        )
-
-        quote_format = QTextCharFormat()
-        quote_format.setForeground(QColor("#6A737D"))
-        quote_format.setFontItalic(True)
-
-        self.rules.append(
-            (r"^>\s.*$", quote_format)
-        )
-
-        list_format = QTextCharFormat()
-        list_format.setForeground(QColor("#7B61FF"))
-
-        self.rules.append(
-            (r"^\s*[-*+]\s+", list_format)
-        )
-
-    def highlightBlock(self, text):
-        import re
-
-        for pattern, text_format in self.rules:
-            for match in re.finditer(pattern, text):
-                start = match.start()
-                length = match.end() - match.start()
-
-                self.setFormat(
-                    start,
-                    length,
-                    text_format,
-                )
 
 class MarkdownEditor(QMainWindow):
     def __init__(self):
@@ -126,28 +63,62 @@ class MarkdownEditor(QMainWindow):
             },
         )        
         self.editor = MarkdownTextEdit()
+
+        self.find_input = QLineEdit()
+        self.find_input.setPlaceholderText("Find...")
+
+        self.find_input.returnPressed.connect(
+            self.find_next
+        )
+
+        self.find_input.textChanged.connect(
+            self.find_text_changed
+        )
+
+        self.find_toolbar = QToolBar("Find", self)
+        self.find_toolbar.setMovable(False)
+
+        self.find_toolbar.addWidget(
+            self.find_input
+        )
+
+        self.addToolBar(
+            Qt.ToolBarArea.TopToolBarArea,
+            self.find_toolbar,
+        )
+
+        self.find_toolbar.setVisible(False)
+
         self.editor.image_pasted.connect(
             self.handle_pasted_image
         )
+
         self.editor.image_dropped.connect(
             self.handle_dropped_image
-        )  
+        )
+
         self.editor.cursorPositionChanged.connect(
             self.update_status_bar
-        )      
+        )
+
         editor_font = self.editor.font()
-        editor_font.setPointSize(13)    
+        editor_font.setPointSize(13)
         self.editor.setFont(editor_font)
+
         self.highlighter = MarkdownHighlighter(
             self.editor.document()
         )
 
+        self.editor.textChanged.connect(
+            self.document_modified
+        )
 
-        self.editor.textChanged.connect(self.document_modified)
         self.preview_timer = QTimer(self)
         self.preview_timer.setSingleShot(True)
         self.preview_timer.setInterval(250)
-        self.preview_timer.timeout.connect(self.update_preview)
+        self.preview_timer.timeout.connect(
+            self.update_preview
+        )
 
         self.editor.textChanged.connect(
             self.schedule_preview_update
@@ -179,8 +150,6 @@ class MarkdownEditor(QMainWindow):
         self.main_splitter.setSizes([200, 700])
 
         self.setCentralWidget(self.main_splitter)
-
-        self.setCentralWidget(self.main_splitter)
         self.create_menu()
         self.load_settings()
         self.restore_window_state()
@@ -188,6 +157,47 @@ class MarkdownEditor(QMainWindow):
         self.update_window_title()
         self.statusBar()
         self.update_status_bar()
+
+    
+    def hide_find_bar(self):
+        self.find_toolbar.setVisible(False)
+        self.editor.setFocus()
+
+    def show_find_bar(self):
+        self.find_toolbar.setVisible(True)
+        self.find_input.setFocus()
+        self.find_input.selectAll()
+
+
+    def find_text_changed(self, text):
+        if not text:
+            return
+
+        cursor = self.editor.textCursor()
+        cursor.movePosition(
+            cursor.MoveOperation.Start
+        )
+        self.editor.setTextCursor(cursor)
+
+        self.editor.find(text)
+
+
+    def find_next(self):
+        text = self.find_input.text()
+
+        if not text:
+            return
+
+        found = self.editor.find(text)
+
+        if not found:
+            cursor = self.editor.textCursor()
+            cursor.movePosition(
+                cursor.MoveOperation.Start
+            )
+            self.editor.setTextCursor(cursor)
+
+            self.editor.find(text)
 
     def schedule_preview_update(self):
         self.preview_timer.start()
@@ -656,6 +666,10 @@ class MarkdownEditor(QMainWindow):
         formatter = HtmlFormatter()
         pygments_css = formatter.get_style_defs(".highlight")
 
+        fixed_font = QFontDatabase.systemFont(
+            QFontDatabase.SystemFont.FixedFont
+        ).family()
+
         styled_html = f"""
         <html>
         <head>
@@ -669,7 +683,7 @@ class MarkdownEditor(QMainWindow):
                 }}
 
                 code {{
-                    font-family: monospace;
+                    font-family: "{fixed_font}";
                 }}
             </style>
         </head>
@@ -723,6 +737,16 @@ class MarkdownEditor(QMainWindow):
         save_as_action.triggered.connect(self.save_file_as)
         file_menu.addAction(save_as_action)
 
+        edit_menu = self.menuBar().addMenu("Edit")
+
+        find_action = QAction("Find", self)
+        find_action.setShortcut(
+            QKeySequence.StandardKey.Find
+        )
+        find_action.triggered.connect(self.show_find_bar)
+
+        edit_menu.addAction(find_action)
+
         view_menu = self.menuBar().addMenu("View")
 
         self.preview_action = QAction("Show Preview", self)
@@ -757,6 +781,14 @@ class MarkdownEditor(QMainWindow):
         view_menu.addAction(self.word_wrap_action)
 
         view_menu.addAction(self.preview_action)
+
+        close_find_action = QAction("Close Find", self)
+        close_find_action.setShortcut("Esc")
+        close_find_action.triggered.connect(
+            self.hide_find_bar
+        )
+
+        edit_menu.addAction(close_find_action)
 
     def create_new_note(self):
         if self.current_folder is None:
