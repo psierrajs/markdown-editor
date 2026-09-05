@@ -37,6 +37,10 @@ from PySide6.QtWidgets import (
     QTreeWidget,
     QToolBar,
     QTreeWidgetItem,
+    QHBoxLayout,
+    QWidget,
+    QVBoxLayout,
+    QSizePolicy,
 )
 
 
@@ -75,19 +79,21 @@ class MarkdownEditor(QMainWindow):
             self.find_text_changed
         )
 
-        self.find_toolbar = QToolBar("Find", self)
-        self.find_toolbar.setMovable(False)
+        self.find_bar = QWidget()
 
-        self.find_toolbar.addWidget(
-            self.find_input
+        self.find_bar.setSizePolicy(
+            QSizePolicy.Policy.Expanding,
+            QSizePolicy.Policy.Fixed,
         )
 
-        self.addToolBar(
-            Qt.ToolBarArea.TopToolBarArea,
-            self.find_toolbar,
-        )
+        find_layout = QHBoxLayout(self.find_bar)
+        find_layout.setContentsMargins(6, 4, 6, 4)
+        find_layout.setSpacing(6)
 
-        self.find_toolbar.setVisible(False)
+        find_layout.addWidget(self.find_input)
+
+
+        self.find_bar.setVisible(False)
 
         self.editor.image_pasted.connect(
             self.handle_pasted_image
@@ -149,7 +155,21 @@ class MarkdownEditor(QMainWindow):
         self.main_splitter.addWidget(self.editor_splitter)
         self.main_splitter.setSizes([200, 700])
 
-        self.setCentralWidget(self.main_splitter)
+        self.central_container = QWidget()
+
+        central_layout = QVBoxLayout(
+            self.central_container
+        )
+        central_layout.setContentsMargins(0, 0, 0, 0)
+        central_layout.setSpacing(0)
+        central_layout.addWidget(self.find_bar)
+        central_layout.addWidget(self.main_splitter)
+        central_layout.setStretch(0, 0)
+        central_layout.setStretch(1, 1)
+
+        self.setCentralWidget(
+            self.central_container
+        )
         self.create_menu()
         self.load_settings()
         self.restore_window_state()
@@ -160,11 +180,11 @@ class MarkdownEditor(QMainWindow):
 
     
     def hide_find_bar(self):
-        self.find_toolbar.setVisible(False)
+        self.find_bar.setVisible(False)
         self.editor.setFocus()
 
     def show_find_bar(self):
-        self.find_toolbar.setVisible(True)
+        self.find_bar.setVisible(True)
         self.find_input.setFocus()
         self.find_input.selectAll()
 
@@ -181,6 +201,28 @@ class MarkdownEditor(QMainWindow):
 
         self.editor.find(text)
 
+    def find_previous(self):
+        text = self.find_input.text()
+
+        if not text:
+            return
+
+        found = self.editor.find(
+            text,
+            QTextDocument.FindFlag.FindBackward,
+        )
+
+        if not found:
+            cursor = self.editor.textCursor()
+            cursor.movePosition(
+                cursor.MoveOperation.End
+            )
+            self.editor.setTextCursor(cursor)
+
+            self.editor.find(
+                text,
+                QTextDocument.FindFlag.FindBackward,
+            )
 
     def find_next(self):
         text = self.find_input.text()
@@ -744,6 +786,16 @@ class MarkdownEditor(QMainWindow):
             QKeySequence.StandardKey.Find
         )
         find_action.triggered.connect(self.show_find_bar)
+
+        find_previous_action = QAction("Find Previous", self)
+        find_previous_action.setShortcut(
+            QKeySequence.StandardKey.FindPrevious
+        )
+        find_previous_action.triggered.connect(
+            self.find_previous
+        )
+
+        edit_menu.addAction(find_previous_action)
 
         edit_menu.addAction(find_action)
 
